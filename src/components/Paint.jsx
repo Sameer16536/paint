@@ -18,6 +18,7 @@ const Paint = () => {
   const [activeButton, setActiveButton] = useState(null);
   const [dragMode, setDragMode] = useState(false);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [colorPicker,setColorPicker] = useState(false)
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
 
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -36,10 +37,14 @@ const Paint = () => {
       setActiveButton(action);
     }
   };
+
+  const toggleColorPicker =()=>{
+    setColorPicker(!colorPicker)
+  }
   
 
   const onStageMouseDown = useCallback((e) => {
-    if (drawAction === 'none' || !activeButton) return; // Only proceed if a button is active
+    if (drawAction === 'none' || !activeButton) return; 
     isPaintRef.current = true;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
@@ -146,7 +151,7 @@ const Paint = () => {
       img.src = imageURL;
       img.onload = () => {
         setImage(img);
-        URL.revokeObjectURL(imageURL); // Clean up memory
+        URL.revokeObjectURL(imageURL); 
       };
     }
   };
@@ -283,7 +288,7 @@ const Paint = () => {
           {image && (
             <Image
               image={image}
-              draggable={zoomLevel > 1} // Prevent dragging when zoomed out
+              draggable={zoomLevel > 1}
               onDragEnd={(e) => {
                 setImagePosition({ x: e.target.x(), y: e.target.y() });
               }}
@@ -346,7 +351,7 @@ const Paint = () => {
         <IconButton
           icon={<PaletteFill />}
           aria-label='Color Picker'
-          onClick={() => setIsColorPickerOpen(true)}
+          onClick={toggleColorPicker}
         />
         <IconButton icon={<Square />} aria-label='Rectangle' bg={activeButton === 'rectangle' ? 'green.400' : 'gray.200'} onClick={() => toggleButton('rectangle')} />
         <IconButton icon={<CircleIcon />} aria-label='Circle' bg={activeButton === 'circle' ? 'green.400' : 'gray.200'} onClick={() => toggleButton('circle')} />
@@ -354,7 +359,7 @@ const Paint = () => {
         <IconButton
           icon={<CursorFill />}
           onClick={() => setDragMode(!dragMode)}
-          colorScheme={dragMode ? 'green' : 'gray'} // Button turns green when active
+          colorScheme={dragMode ? 'green' : 'gray'} 
         />
         <IconButton icon={<Trash />} aria-label='Clear' bg='red.400' onClick={onClear} />
       </ButtonGroup>
@@ -367,6 +372,14 @@ const Paint = () => {
         <IconButton icon={<ArrowsFullscreen />} aria-label='Reset Zoom' onClick={handleResetZoom} />
       </ButtonGroup>
     </Flex>
+    {colorPicker &&(
+      <Box position="absolute" zIndex={1}>
+      <SketchPicker
+        color={color}
+        onChange={handleColorChange}
+      />
+    </Box>
+    )}
     <Modal isOpen={isOpen} onClose={onClose}>
       <ModalOverlay />
       <ModalContent>
