@@ -1,13 +1,13 @@
 
 import React from 'react'
-import Paint from './components/Paint'
+import Paint2 from './components/Paint'
 import { ChakraProvider } from '@chakra-ui/react'
 
 const App = () => {
   return (
     <ChakraProvider>
 
-      <Paint />
+      <Paint2 />
     </ChakraProvider>
   
   )
