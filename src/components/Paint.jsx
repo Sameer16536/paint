@@ -17,7 +17,7 @@ const Paint = () => {
   const [zoomMode, setZoomMode] = useState(false);
   const [activeButton, setActiveButton] = useState(null);
   const [dragMode, setDragMode] = useState(false);
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  
   const [colorPicker,setColorPicker] = useState(false)
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
 

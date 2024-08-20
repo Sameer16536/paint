@@ -248,7 +248,8 @@ const Paint2 = () => {
       return;
     }
 
-    if (e.evt.type === 'click') { // Handle mouse click
+    if (e.evt.type === 'click') {
+    
       const stage = stageRef.current;
       const oldScale = stage.scaleX();
       const pointer = stage.getPointerPosition();
