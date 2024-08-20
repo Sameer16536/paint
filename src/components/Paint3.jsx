@@ -22,9 +22,9 @@ const Paint3 = () => {
     const [colorPicker, setColorPicker] = useState(false)
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
 
-    
 
-    
+
+
 
     const { isOpen, onOpen, onClose } = useDisclosure();
     const stageRef = useRef(null);
@@ -34,7 +34,7 @@ const Paint3 = () => {
     const transformerRef = useRef(null);
 
     const toggleButton = (action) => {
-      
+
         if (drawAction === action) {
             setDrawAction('none');
             setActiveButton(null);
@@ -56,10 +56,10 @@ const Paint3 = () => {
         const clickedOnImage = e.target === stage.findOne('Image')
         const pointerPos = stage.getPointerPosition();
         const scale = stage.scaleX();
-       
-        const pos = {
-            x: pointerPos.x / scale,
-            y: pointerPos.y / scale
+
+        const stagePos = {
+            x: (pointerPos.x - stage.x()) / scale,
+            y: (pointerPos.y - stage.y()) / scale
         };
 
         const id = uuidv4();
@@ -71,17 +71,16 @@ const Paint3 = () => {
 
         switch (drawAction) {
             case 'scribble':
-                setScribbles(prev => [...prev, { id, points: [pos.x, pos.y], color }]);
+                setScribbles(prev => [...prev, { id, points: [stagePos.x, stagePos.y], color }]);
                 break;
             case 'rectangle':
-           
-                setRectangles(prev => [...prev, { id, x: pos.x, y: pos.y, width: 0, height: 0, color }]);
+                setRectangles(prev => [...prev, { id, x: stagePos.x, y: stagePos.y, width: 0, height: 0, color }]);
                 break;
             case 'circle':
-                setCircles(prev => [...prev, { id, x: pos.x, y: pos.y, radius: 0, color }]);
+                setCircles(prev => [...prev, { id, x: stagePos.x, y: stagePos.y, radius: 0, color }]);
                 break;
             case 'arrow':
-                setArrows(prev => [...prev, { id, points: [pos.x, pos.y, pos.x, pos.y], color }]);
+                setArrows(prev => [...prev, { id, points: [stagePos.x, stagePos.y, stagePos.x, stagePos.y], color }]);
                 break;
         }
     }, [drawAction, color, activeButton, dragMode]);
@@ -93,9 +92,9 @@ const Paint3 = () => {
         const pointerPos = stage.getPointerPosition();
         const scale = stage.scaleX();
 
-        const pos = {
-            x: pointerPos.x / scale,
-            y: pointerPos.y / scale
+        const stagePos = {
+            x: (pointerPos.x - stage.x()) / scale,
+            y: (pointerPos.y - stage.y()) / scale
         };
 
         switch (drawAction) {
@@ -103,19 +102,16 @@ const Paint3 = () => {
                 setScribbles(prev =>
                     prev.map(scribble =>
                         scribble.id === currentShapeRef.current
-                            ? { ...scribble, points: [...scribble.points, pos.x, pos.y] }
+                            ? { ...scribble, points: [...scribble.points, stagePos.x, stagePos.y] }
                             : scribble
                     )
                 );
                 break;
             case 'rectangle':
-             
-                
-
                 setRectangles(prev =>
                     prev.map(rect =>
                         rect.id === currentShapeRef.current
-                            ? { ...rect, width: pos.x - rect.x, height: pos.y - rect.y }
+                            ? { ...rect, width: stagePos.x - rect.x, height: stagePos.y - rect.y }
                             : rect
                     )
                 );
@@ -124,7 +120,7 @@ const Paint3 = () => {
                 setCircles(prev =>
                     prev.map(circle =>
                         circle.id === currentShapeRef.current
-                            ? { ...circle, radius: Math.sqrt(Math.pow(pos.x - circle.x, 2) + Math.pow(pos.y - circle.y, 2)) }
+                            ? { ...circle, radius: Math.sqrt(Math.pow(stagePos.x - circle.x, 2) + Math.pow(stagePos.y - circle.y, 2)) }
                             : circle
                     )
                 );
@@ -133,7 +129,7 @@ const Paint3 = () => {
                 setArrows(prev =>
                     prev.map(arrow =>
                         arrow.id === currentShapeRef.current
-                            ? { ...arrow, points: [arrow.points[0], arrow.points[1], pos.x, pos.y] }
+                            ? { ...arrow, points: [arrow.points[0], arrow.points[1], stagePos.x, stagePos.y] }
                             : arrow
                     )
                 );
@@ -143,18 +139,18 @@ const Paint3 = () => {
 
     const onStageMouseUp = useCallback(() => {
         isPaintRef.current = false;
-    
+
         if (drawAction === 'rectangle' && rectangles.length > 0) {
             const lastRectangle = rectangles[rectangles.length - 1];
-            
+
             if (lastRectangle.width !== 0 && lastRectangle.height !== 0) {
                 console.log("Rectangle Coordinates:", {
                     x: lastRectangle.x,
                     y: lastRectangle.y,
                     width: lastRectangle.width,
                     height: lastRectangle.height,
-                    zoom:zoomLevel,
-                    scale:stageRef.current.scaleX()
+                    zoom: zoomLevel,
+                    scale: stageRef.current.scaleX()
                 });
             }
         }
@@ -317,14 +313,17 @@ const Paint3 = () => {
                     ref={stageRef}
                     onClick={handleStageClick}
                     onWheel={handleWheel}
+                    style={{ cursor: dragMode ? 'move' : 'default' }}
                 >
                     <Layer>
                         {image && (
                             <Image
                                 image={image}
-                                draggable={zoomLevel > 1}
+                                draggable={dragMode}
                                 onDragEnd={(e) => {
-                                    setImagePosition({ x: e.target.x(), y: e.target.y() });
+                                    if (dragMode) {
+                                        setImagePosition({ x: e.target.x(), y: e.target.y() });
+                                    }
                                 }}
                             />
                         )}
@@ -414,7 +413,7 @@ const Paint3 = () => {
                     />
                 </Box>
             )}
-        
+
             <Modal isOpen={isOpen} onClose={onClose}>
                 <ModalOverlay />
                 <ModalContent>
