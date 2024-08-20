@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Image, Circle, Line, Arrow, Transformer } from 'rea
 import { v4 as uuidv4 } from 'uuid';
 import { Box, Button, ButtonGroup, Flex, IconButton, Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, useDisclosure } from '@chakra-ui/react';
 import { SketchPicker } from 'react-color';
-import { PencilFill, Square, Circle as CircleIcon, Search, ArrowUpRight, PaletteFill, CursorFill, Trash, Download, Upload, Plus, Dash, ArrowsFullscreen ,ArrowsAngleExpand} from 'react-bootstrap-icons';
+import { PencilFill, Square, Circle as CircleIcon, Search, ArrowUpRight, PaletteFill, CursorFill, Trash, Download, Upload, Plus, Dash, ArrowsFullscreen, ArrowsAngleExpand } from 'react-bootstrap-icons';
 
 
 const Paint3 = () => {
@@ -23,7 +23,7 @@ const Paint3 = () => {
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
     const [shapeDragMode, setShapeDragMode] = useState(false)
     const [resizeMode, setResizeMode] = useState(false)
-    const [selectedId, setselectedId] = useState(null)
+    const [selectedId, setSelectedId] = useState(null)
 
 
 
@@ -138,6 +138,8 @@ const Paint3 = () => {
         }
     }, [drawAction]);
 
+
+
     const onStageMouseUp = useCallback(() => {
         isPaintRef.current = false;
 
@@ -158,10 +160,14 @@ const Paint3 = () => {
     }, [drawAction, rectangles]);
 
     const onShapeClick = useCallback((e) => {
-        if (drawAction !== 'select') return;
+        // if (drawAction !== 'select') return;
+        //! Here might be the issue
+        if (!resizeMode) return
         const currentTarget = e.currentTarget;
+        setSelectedId(currentTarget.id())
         transformerRef.current.nodes([currentTarget]);
-    }, [drawAction]);
+        transformerRef.current.getLayer().batchDraw();
+    }, [drawAction, resizeMode]);
 
     const checkDeselect = useCallback((e) => {
         const clickedOnEmpty = e.target === e.target.getStage();
@@ -171,22 +177,32 @@ const Paint3 = () => {
     }, []);
 
     //!Issue
-    const handleTransformEnd = (e) => {
-        const node = e.target
-        const scaleX = node.scaleX()
-        const scaleY = node.scaleY()
+    const handleTransformEnd = useCallback((e) => {
+        const node = e.target;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
 
-        //Reset the scale
-        node.scaleX(1)
-        node.scaleY(1)
+        // Reset the scale
+        node.scaleX(1);
+        node.scaleY(1);
+
         if (selectedId === 'image') {
-            setImage({
-                ...image,
-                width: node.width() * scaleX,
-                height: node.height() * scaleY,
-            });
-        }
-        else {
+            const image = node;
+
+            // Update image size based on the transformer scale
+            const newWidth = image.width() * scaleX;
+            const newHeight = image.height() * scaleY;
+
+            // Create a new image object for updated dimensions
+            const newImage = new window.Image();
+            newImage.src = image.image().src; // Ensure to use the correct source URL
+            newImage.onload = () => {
+                image.image(newImage);
+                image.width(newWidth);
+                image.height(newHeight);
+                image.getLayer().batchDraw(); // Refresh layer
+            };
+        } else {
             // Update rectangles
             setRectangles(rects =>
                 rects.map(rect => {
@@ -195,8 +211,8 @@ const Paint3 = () => {
                             ...rect,
                             x: node.x(),
                             y: node.y(),
-                            width: node.width() * scaleX,
-                            height: node.height() * scaleY,
+                            width: Math.abs(node.width() * scaleX),
+                            height: Math.abs(node.height() * scaleY),
                         };
                     }
                     return rect;
@@ -211,7 +227,7 @@ const Paint3 = () => {
                             ...circ,
                             x: node.x(),
                             y: node.y(),
-                            radius: node.width() * scaleX / 2, 
+                            radius: Math.abs(node.width() * scaleX / 2),
                         };
                     }
                     return circ;
@@ -234,9 +250,8 @@ const Paint3 = () => {
                     return arr;
                 })
             );
-
         }
-    }
+    }, [selectedId, image])
 
     useEffect(() => {
         if (selectedId === null) {
@@ -266,9 +281,22 @@ const Paint3 = () => {
                 setImage(img);
                 URL.revokeObjectURL(imageURL);
             };
+            img.onerror = () => {
+                console.error('Error loading image');
+                URL.revokeObjectURL(imageURL);
+            };
         }
     };
-
+    useEffect(() => {
+        if (image) {
+            const newImage = new window.Image();
+            newImage.src = image.src; // Ensure image source is correctly set
+            newImage.onload = () => {
+                setImage(newImage);
+            };
+        }
+    }, [image]);
+    
 
     const onExportClick = useCallback(() => {
         const dataURL = stageRef.current.toDataURL({ pixelRatio: 3 });
@@ -351,10 +379,12 @@ const Paint3 = () => {
     }, [zoomLevel]);
 
     const handleStageClick = useCallback((e) => {
-        if (!zoomMode) {
-            checkDeselect(e);
-            return;
+        if (e.target === e.target.getStage()) {
+            setSelectedId(null);
+            transformerRef.current.nodes([]);
         }
+
+        if (!zoomMode) return;
 
         if (e.evt.type === 'click') {
 
@@ -380,11 +410,14 @@ const Paint3 = () => {
             stage.position(newPos);
             stage.batchDraw();
         }
-    }, [zoomMode]);
+    }, [zoomMode, resizeMode]);
     const handleColorChange = (newColor) => {
         setColor(newColor.hex);
     };
-
+    //!Remove
+    useEffect(() => {
+        console.log('Image state updated:', image);
+    }, [image]);
     return (
         <>
             <Box bg='gray.300' w='100%' h='80vh' overflow='hidden' position='relative'>
@@ -403,6 +436,8 @@ const Paint3 = () => {
                         {image && (
                             <Image
                                 image={image}
+                                width={image ? image.width : 0}
+                                height={image ? image.height : 0}
                                 draggable={dragMode}
                                 onDragEnd={(e) => {
                                     if (dragMode) {
@@ -414,7 +449,7 @@ const Paint3 = () => {
                                         setSelectedId('image');
                                     }
                                 }}
-                                onTransformEnd={handleTransformEnd}
+                                onTransformEnd={(e) => { handleTransformEnd(e) }}
                             />
                         )}
                     </Layer>
@@ -439,6 +474,7 @@ const Paint3 = () => {
                         {rectangles.map((rect) => (
                             <Rect
                                 key={rect.id}
+                                id={rect.id}
                                 x={rect.x}
                                 y={rect.y}
                                 width={rect.width}
@@ -455,13 +491,14 @@ const Paint3 = () => {
                                     }
 
                                 }}
-                                onTransformEnd={handleTransformEnd}
+                                onTransformEnd={(e) => { handleTransformEnd(e) }}
 
                             />
                         ))}
                         {circles.map((circle) => (
                             <Circle
                                 key={circle.id}
+                                id={circle.id}
                                 x={circle.x}
                                 y={circle.y}
                                 radius={circle.radius}
@@ -476,12 +513,13 @@ const Paint3 = () => {
                                         setCircles(prev => prev.map(c => c.id === circle.id ? { ...c, x: pos.x, y: pos.y } : c));
                                     }
                                 }}
-                                onTransformEnd={handleTransformEnd}
+                                onTransformEnd={(e) => { handleTransformEnd(e) }}
                             />
                         ))}
                         {arrows.map((arrow) => (
                             <Arrow
                                 key={arrow.id}
+                                id={arrow.id}
                                 points={arrow.points}
                                 fill="transparent"
                                 stroke={arrow.color}
@@ -494,10 +532,16 @@ const Paint3 = () => {
                                         setArrows(prev => prev.map(a => a.id === arrow.id ? { ...a, points: a.points.map((p, i) => i % 2 === 0 ? p + pos.x : p + pos.y) } : a));
                                     }
                                 }}
-                                onTransformEnd={handleTransformEnd}
+                                onTransformEnd={(e) => { handleTransformEnd(e) }}
                             />
                         ))}
-                        <Transformer ref={transformerRef} />
+                        <Transformer ref={transformerRef} boundBoxFunc={(oldBox, newBox) => {
+                            // // Limit resize
+                            // if (newBox.width < 5 || newBox.height < 5) {
+                            //     return oldBox;
+                            // }
+                            return newBox;
+                        }} />
                     </Layer>
                 </Stage>
             </Box>
@@ -530,10 +574,17 @@ const Paint3 = () => {
                     <IconButton icon={<Dash />} aria-label='Zoom Out' onClick={handleZoomOut} />
                     <IconButton icon={<ArrowsFullscreen />} aria-label='Reset Zoom' onClick={handleResetZoom} />
                     <IconButton
-                        icon={<ArrowsAngleExpand/>
+                        icon={<ArrowsAngleExpand />}
+                        onClick={() => {
+                            setResizeMode(!resizeMode)
+                            setDrawAction('none')
+                            setActiveButton(null)
+                            //!remove this
+                            console.log("Resize mode:", !resizeMode)
 
                         }
-                        onClick={() => setResizeMode(!resizeMode)}
+                        }
+
                         colorScheme={resizeMode ? 'purple' : 'gray'}
                         aria-label='Resize Mode'
                     />
