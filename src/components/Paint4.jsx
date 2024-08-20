@@ -6,7 +6,7 @@ import { SketchPicker } from 'react-color';
 import { PencilFill, Square, Circle as CircleIcon, Search, ArrowUpRight, PaletteFill, CursorFill, Trash, Download, Upload, Plus, Dash, ArrowsFullscreen, ArrowsAngleExpand } from 'react-bootstrap-icons';
 
 
-const Paint3 = () => {
+const Paint4 = () => {
     const [color, setColor] = useState('#000');
     const [drawAction, setDrawAction] = useState('none');
     const [scribbles, setScribbles] = useState([]);
@@ -187,22 +187,18 @@ const Paint3 = () => {
         node.scaleY(1);
 
         if (selectedId === 'image') {
-            const image = node;
-                
-            // *Update image size based on the transformer scale
-            const newWidth = image.width() * scaleX;
-            const newHeight = image.height() * scaleY;
+            
 
-            // *Create a new image object for updated dimensions
-            const newImage = new window.Image();
-            newImage.src = image.image().src; 
-            newImage.onload = () => {
-                image.image(newImage);
-                image.width(newWidth);
-                image.height(newHeight);
-                image.getLayer().batchDraw(); 
-            };
-        } else {
+            // *Update image size based on the transformer scale
+            const newWidth = node.width() * scaleX;
+            const newHeight = node.height() * scaleY
+            setImage(prevImage => ({
+                ...prevImage,
+                width: newWidth,
+                height: newHeight
+            }))
+        }
+        else {
             // Update rectangles
             setRectangles(rects =>
                 rects.map(rect => {
@@ -251,7 +247,7 @@ const Paint3 = () => {
                 })
             );
         }
-    }, [selectedId, image])
+    }, [selectedId])
 
     useEffect(() => {
         if (selectedId === null) {
@@ -274,29 +270,24 @@ const Paint3 = () => {
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            const imageURL = URL.createObjectURL(file);
-            const img = new window.Image();
-            img.src = imageURL;
-            img.onload = () => {
-                setImage(img);
-                URL.revokeObjectURL(imageURL);
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new window.Image();
+                img.onload = () => {
+                    setImage({
+                        data: img,  // Store the Image object instead of the data URL
+                        width: img.width,
+                        height: img.height
+                    });
+                };
+                img.src = event.target.result;
             };
-            img.onerror = () => {
-                console.error('Error loading image');
-                URL.revokeObjectURL(imageURL);
-            };
+            reader.readAsDataURL(file);
         }
     };
-    useEffect(() => {
-        if (image) {
-            const newImage = new window.Image();
-            newImage.src = image.src; // Ensure image source is correctly set
-            newImage.onload = () => {
-                setImage(newImage);
-            };
-        }
-    }, [image]);
-    
+
+
+
 
     const onExportClick = useCallback(() => {
         const dataURL = stageRef.current.toDataURL({ pixelRatio: 3 });
@@ -414,10 +405,7 @@ const Paint3 = () => {
     const handleColorChange = (newColor) => {
         setColor(newColor.hex);
     };
-    //!Remove
-    // useEffect(() => {
-    //     console.log('Image state updated:', image);
-    // }, [image]);
+
     return (
         <>
             <Box bg='gray.300' w='100%' h='80vh' overflow='hidden' position='relative'>
@@ -435,9 +423,9 @@ const Paint3 = () => {
                     <Layer>
                         {image && (
                             <Image
-                                image={image}
-                                width={image ? image.width : 0}
-                                height={image ? image.height : 0}
+                                image={image.data}
+                                width={image.width}
+                                height={image.height}
                                 draggable={dragMode}
                                 onDragEnd={(e) => {
                                     if (dragMode) {
@@ -616,4 +604,4 @@ const Paint3 = () => {
     );
 };
 
-export default Paint3;
+export default Paint4;

@@ -2,7 +2,8 @@
 import React from 'react'
 
 import { ChakraProvider } from '@chakra-ui/react'
-import Paint3 from './components/Paint3'
+import Paint4 from './components/Paint4'
+
 
 const App = () => {
   // const value = "Hello"
@@ -11,7 +12,7 @@ const App = () => {
     <ChakraProvider>
       {/* <p>{value}</p> */}
       
-      <Paint3 />
+      <Paint4 />
     </ChakraProvider>
   
   )
