@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Image, Circle, Line, Arrow, Transformer } from 'rea
 import { v4 as uuidv4 } from 'uuid';
 import { Box, Button, ButtonGroup, Flex, IconButton, Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, useDisclosure } from '@chakra-ui/react';
 import { SketchPicker } from 'react-color';
-import { PencilFill, Square, Circle as CircleIcon, Search, ArrowUpRight, PaletteFill, CursorFill, Trash, Download, Upload, Plus, Dash, ArrowsFullscreen } from 'react-bootstrap-icons';
+import { PencilFill, Square, Circle as CircleIcon, Search, ArrowUpRight, PaletteFill, CursorFill, Trash, Download, Upload, Plus, Dash, ArrowsFullscreen ,ArrowsAngleExpand} from 'react-bootstrap-icons';
 
 
 const Paint3 = () => {
@@ -21,8 +21,9 @@ const Paint3 = () => {
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
     const [colorPicker, setColorPicker] = useState(false)
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
-
-
+    const [shapeDragMode, setShapeDragMode] = useState(false)
+    const [resizeMode, setResizeMode] = useState(false)
+    const [selectedId, setselectedId] = useState(null)
 
 
 
@@ -169,8 +170,91 @@ const Paint3 = () => {
         }
     }, []);
 
+    //!Issue
+    const handleTransformEnd = (e) => {
+        const node = e.target
+        const scaleX = node.scaleX()
+        const scaleY = node.scaleY()
 
+        //Reset the scale
+        node.scaleX(1)
+        node.scaleY(1)
+        if (selectedId === 'image') {
+            setImage({
+                ...image,
+                width: node.width() * scaleX,
+                height: node.height() * scaleY,
+            });
+        }
+        else {
+            // Update rectangles
+            setRectangles(rects =>
+                rects.map(rect => {
+                    if (rect.id === selectedId) {
+                        return {
+                            ...rect,
+                            x: node.x(),
+                            y: node.y(),
+                            width: node.width() * scaleX,
+                            height: node.height() * scaleY,
+                        };
+                    }
+                    return rect;
+                })
+            );
 
+            // Update circles
+            setCircles(circs =>
+                circs.map(circ => {
+                    if (circ.id === selectedId) {
+                        return {
+                            ...circ,
+                            x: node.x(),
+                            y: node.y(),
+                            radius: node.width() * scaleX / 2, 
+                        };
+                    }
+                    return circ;
+                })
+            );
+
+            // Update arrows
+            setArrows(arrs =>
+                arrs.map(arr => {
+                    if (arr.id === selectedId) {
+                        const oldPoints = arr.points;
+                        const newPoints = [
+                            node.x(),
+                            node.y(),
+                            node.x() + (oldPoints[2] - oldPoints[0]) * scaleX,
+                            node.y() + (oldPoints[3] - oldPoints[1]) * scaleY,
+                        ];
+                        return { ...arr, points: newPoints };
+                    }
+                    return arr;
+                })
+            );
+
+        }
+    }
+
+    useEffect(() => {
+        if (selectedId === null) {
+            return;
+        }
+        const stage = stageRef.current;
+        const layer = stage.findOne('Layer');
+        let node;
+        if (selectedId === 'image') {
+            node = layer.findOne('Image');
+        } else {
+            node = layer.findOne(`#${selectedId}`);
+        }
+        if (node) {
+            transformerRef.current.nodes([node]);
+            layer.batchDraw();
+        }
+    }, [selectedId]);
 
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
@@ -313,7 +397,7 @@ const Paint3 = () => {
                     ref={stageRef}
                     onClick={handleStageClick}
                     onWheel={handleWheel}
-                    style={{ cursor: dragMode ? 'move' : 'default' }}
+                    style={{ cursor: dragMode ? 'move' : (shapeDragMode ? 'grab' : 'default') }}
                 >
                     <Layer>
                         {image && (
@@ -325,6 +409,12 @@ const Paint3 = () => {
                                         setImagePosition({ x: e.target.x(), y: e.target.y() });
                                     }
                                 }}
+                                onClick={() => {
+                                    if (resizeMode) {
+                                        setSelectedId('image');
+                                    }
+                                }}
+                                onTransformEnd={handleTransformEnd}
                             />
                         )}
                     </Layer>
@@ -337,6 +427,13 @@ const Paint3 = () => {
                                 strokeWidth={3}
                                 tension={0.5}
                                 lineCap='round'
+                                draggable={shapeDragMode}
+                                onDragEnd={(e) => {
+                                    if (shapeDragMode) {
+                                        const pos = e.target.position();
+                                        setScribbles(prev => prev.map(s => s.id === scribble.id ? { ...s, points: s.points.map((p, i) => i % 2 === 0 ? p + pos.x : p + pos.y) } : s));
+                                    }
+                                }}
                             />
                         ))}
                         {rectangles.map((rect) => (
@@ -350,6 +447,16 @@ const Paint3 = () => {
                                 stroke={rect.color}
                                 strokeWidth={2}
                                 onClick={onShapeClick}
+                                draggable={shapeDragMode}
+                                onDragEnd={(e) => {
+                                    if (shapeDragMode) {
+                                        const pos = e.target.position();
+                                        setRectangles(prev => prev.map(r => r.id === rect.id ? { ...r, x: pos.x, y: pos.y } : r));
+                                    }
+
+                                }}
+                                onTransformEnd={handleTransformEnd}
+
                             />
                         ))}
                         {circles.map((circle) => (
@@ -362,6 +469,14 @@ const Paint3 = () => {
                                 stroke={circle.color}
                                 strokeWidth={2}
                                 onClick={onShapeClick}
+                                draggable={shapeDragMode}
+                                onDragEnd={(e) => {
+                                    if (shapeDragMode) {
+                                        const pos = e.target.position();
+                                        setCircles(prev => prev.map(c => c.id === circle.id ? { ...c, x: pos.x, y: pos.y } : c));
+                                    }
+                                }}
+                                onTransformEnd={handleTransformEnd}
                             />
                         ))}
                         {arrows.map((arrow) => (
@@ -372,6 +487,14 @@ const Paint3 = () => {
                                 stroke={arrow.color}
                                 strokeWidth={2}
                                 onClick={onShapeClick}
+                                draggable={shapeDragMode}
+                                onDragEnd={(e) => {
+                                    if (shapeDragMode) {
+                                        const pos = e.target.position();
+                                        setArrows(prev => prev.map(a => a.id === arrow.id ? { ...a, points: a.points.map((p, i) => i % 2 === 0 ? p + pos.x : p + pos.y) } : a));
+                                    }
+                                }}
+                                onTransformEnd={handleTransformEnd}
                             />
                         ))}
                         <Transformer ref={transformerRef} />
@@ -380,6 +503,9 @@ const Paint3 = () => {
             </Box>
             <Flex mt={2} justify='center' align='center'>
                 <ButtonGroup>
+                    <IconButton icon={<CursorFill />} onClick={() => setShapeDragMode(!shapeDragMode)} colorScheme={shapeDragMode ? 'blue' : 'gray'}
+                        aria-label='Shape Drag Mode'
+                    />
                     <IconButton icon={<PencilFill />} aria-label='Scribble' bg={activeButton === 'scribble' ? 'green.400' : 'gray.200'} onClick={() => toggleButton('scribble')} />
                     <IconButton
                         icon={<PaletteFill />}
@@ -403,6 +529,14 @@ const Paint3 = () => {
                     <IconButton icon={<Plus />} aria-label='Zoom In' onClick={handleZoomIn} />
                     <IconButton icon={<Dash />} aria-label='Zoom Out' onClick={handleZoomOut} />
                     <IconButton icon={<ArrowsFullscreen />} aria-label='Reset Zoom' onClick={handleResetZoom} />
+                    <IconButton
+                        icon={<ArrowsAngleExpand/>
+
+                        }
+                        onClick={() => setResizeMode(!resizeMode)}
+                        colorScheme={resizeMode ? 'purple' : 'gray'}
+                        aria-label='Resize Mode'
+                    />
                 </ButtonGroup>
             </Flex>
             {colorPicker && (
